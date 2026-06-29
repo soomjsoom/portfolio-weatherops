@@ -22,8 +22,8 @@
 
   var stores = [
     {
-      id: 'seongsu', name: '서울 성수', region: '서울', risk: 'orange', score: 91,
-      manager: '한석태 매니저', trigger: '강수 집중 · 고객 동선 안전 확인 필요',
+      id: 'w01', name: 'W-01 지점', region: '권역 A', risk: 'orange', score: 91,
+      manager: 'OPS-A 담당자', trigger: '강수 집중 · 고객 동선 안전 확인 필요',
       weather: '강수확률 90% · 강수량 5mm · 최고기온 30C',
       as: 'AS 차단', recovery: 'CRM 대기', action: '안전/AS 정상화 확인 전 방문 유도 공지',
       ops: 'AS 차단 해제 확인 및 고객 대기 안내 문구 준비',
@@ -32,8 +32,8 @@
       matrix: ['danger', 'normal', 'watch']
     },
     {
-      id: 'hanam', name: '하남 미사', region: '하남', risk: 'orange', score: 82,
-      manager: '박준영 매니저', trigger: '강한 비 · 피크 전 수요 급락 가능',
+      id: 'w02', name: 'W-02 지점', region: '권역 B', risk: 'orange', score: 82,
+      manager: 'OPS-B 담당자', trigger: '강한 비 · 피크 전 수요 급락 가능',
       weather: '강수확률 80% · 강수량 4mm · 풍속 4.2m/s',
       as: '정상', recovery: 'CRM 가능', action: '17시 전 점검 완료 후 D+1 재방문 유도',
       ops: '피크 전 배수/진입 동선 확인',
@@ -42,8 +42,8 @@
       matrix: ['caution', 'normal', 'caution']
     },
     {
-      id: 'gwangmyeong', name: '광명점', region: '광명', risk: 'orange', score: 76,
-      manager: '안건후 매니저', trigger: '비/미세먼지 복합 · 예약 취소 증가',
+      id: 'w03', name: 'W-03 지점', region: '권역 C', risk: 'orange', score: 76,
+      manager: 'OPS-C 담당자', trigger: '비/미세먼지 복합 · 예약 취소 증가',
       weather: '강수확률 80% · 강수량 2mm · PM10 58',
       as: '정상', recovery: 'CRM 가능', action: '회복 수요 사전 확보 및 CRM 승인 요청',
       ops: '피크 전 현장 인력 배치 재점검',
@@ -52,8 +52,8 @@
       matrix: ['caution', 'normal', 'caution']
     },
     {
-      id: 'jayuro', name: '자유로 88', region: '파주/고양', risk: 'yellow', score: 61,
-      manager: '정진호 매니저', trigger: '비 예보 · 저녁 수요 가능성 낮음',
+      id: 'w04', name: 'W-04 지점', region: '권역 D', risk: 'yellow', score: 61,
+      manager: 'OPS-D 담당자', trigger: '비 예보 · 저녁 수요 가능성 낮음',
       weather: '강수확률 70% · 강수량 4mm · 최고기온 30C',
       as: '정상', recovery: 'CRM 대기', action: '마감 1시간 전 내수/신규 흐름 확인',
       ops: '저녁 수요 회복 여부 확인',
@@ -62,8 +62,8 @@
       matrix: ['watch', 'normal', 'watch']
     },
     {
-      id: 'ilsan', name: '일산 풍동', region: '고양/일산', risk: 'yellow', score: 58,
-      manager: '장한샘 매니저', trigger: '비 예보 · 오후 수요 가능성 낮음',
+      id: 'w05', name: 'W-05 지점', region: '권역 E', risk: 'yellow', score: 58,
+      manager: 'OPS-E 담당자', trigger: '비 예보 · 오후 수요 가능성 낮음',
       weather: '강수확률 60% · 강수량 3mm · 최고기온 30C',
       as: '정상', recovery: 'CRM 대기', action: '오픈 전 배수/미끄럼 점검, 피크 전 대기열 확인',
       ops: '오픈 전 안전 점검 유지',
@@ -72,8 +72,8 @@
       matrix: ['watch', 'normal', 'normal']
     },
     {
-      id: 'anseong', name: '안성 석정', region: '안성', risk: 'yellow', score: 54,
-      manager: '정찬희 매니저', trigger: '비 예보 · 신규 기준 수요 변동',
+      id: 'w06', name: 'W-06 지점', region: '권역 F', risk: 'yellow', score: 54,
+      manager: 'OPS-F 담당자', trigger: '비 예보 · 신규 기준 수요 변동',
       weather: '강수확률 60% · 강수량 3mm · 풍속 2.9m/s',
       as: '정상', recovery: 'CRM 대기', action: '운영 로그 확인 및 피크 대응 기록',
       ops: '신규 기준 운영 로그 확인',
@@ -82,8 +82,8 @@
       matrix: ['watch', 'normal', 'normal']
     },
     {
-      id: 'goyang', name: '고양 삼송', region: '고양', risk: 'green', score: 22,
-      manager: '추상민 매니저', trigger: '주의 없음',
+      id: 'w07', name: 'W-07 지점', region: '권역 G', risk: 'green', score: 22,
+      manager: 'OPS-G 담당자', trigger: '주의 없음',
       weather: '강수확률 20% · 풍속 2.4m/s · 최고기온 28C',
       as: '정상', recovery: '대상 없음', action: '정상 운영 유지',
       ops: '정상 운영 유지',
