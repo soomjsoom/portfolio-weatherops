@@ -3,6 +3,7 @@
 포트폴리오 전시용 Weather Ops 대시보드 목업입니다.
 
 - 원본 구조: AUTOSTAY Weather Ops Dashboard
+- 반영 기준: 오늘 판단 / 지점 상세 / 회복 / 데이터 상태 탭 구조
 - 데이터 기준: 비식별 가상 데이터
 - 배포 방식: 정적 HTML/CSS/JS
 
@@ -11,6 +12,7 @@
 - `index.html`
 - `style.css`
 - `data.js`
+- `vercel.json`
 - `README.md`
 
 ## 로컬 확인

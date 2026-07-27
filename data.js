@@ -1,303 +1,681 @@
 (function () {
-  var state = { risk: 'all', store: 'all' };
+  var state = {
+    tab: 'today',
+    status: 'all',
+    store: 'all'
+  };
 
-  var metrics = [
-    { label: '즉시 조치', value: 3, sub: 'Orange/Red 확인' },
-    { label: '주의 관찰', value: 4, sub: 'Yellow 및 회복 관찰' },
-    { label: 'AS 차단', value: 1, sub: '정상화 전 유도 금지' },
-    { label: '회복 조치', value: 2, sub: 'D+1/D+2 액션' },
-    { label: 'CRM 가능', value: 2, sub: '마케팅 실행 후보' },
-    { label: '성과 대기', value: 1, sub: '매출/처리대수 확정 전' },
-    { label: '시스템 오류', value: 0, sub: '최근 24시간' }
+  var tabs = [
+    { id: 'today', label: '오늘 판단' },
+    { id: 'detail', label: '지점 상세' },
+    { id: 'recovery', label: '회복' },
+    { id: 'data', label: '데이터 상태' }
   ];
 
-  var filters = [
+  var statusFilters = [
     { id: 'all', label: '전체' },
-    { id: 'error', label: 'Error' },
-    { id: 'red', label: 'Red' },
-    { id: 'orange', label: 'Orange' },
-    { id: 'yellow', label: 'Yellow' },
-    { id: 'green', label: 'Green' }
+    { id: 'error', label: '오류' },
+    { id: 'limit', label: '제한확인' },
+    { id: 'action', label: '조치' },
+    { id: 'caution', label: '주의' },
+    { id: 'normal', label: '정상' },
+    { id: 'wait', label: '신호대기' }
+  ];
+
+  var metrics = [
+    { label: '안전 확보', value: '6개점', sub: '운영 4 · 기상 신호 6' },
+    { label: '다운타임 축소', value: '0개점', sub: '현재 AS 차단 없음' },
+    { label: 'CS 안정화', value: '4건', sub: '미확인 3개점 · 대기 4건' },
+    { label: '수요·매출 회복', value: '85건', sub: '회복 조치·관찰 후보' },
+    { label: 'CRM 후보', value: '7건', sub: 'AS/운영 게이트 통과' },
+    { label: '현장 취약정보', value: '7/7', sub: '강수·강풍 취약정보 수신' }
   ];
 
   var stores = [
     {
-      id: 'w01', name: 'W-01 지점', region: '권역 A', risk: 'orange', score: 91,
-      manager: 'OPS-A 담당자', trigger: '강수 집중 · 고객 동선 안전 확인 필요',
-      weather: '강수확률 90% · 강수량 5mm · 최고기온 30C',
-      as: 'AS 차단', recovery: 'CRM 대기', action: '안전/AS 정상화 확인 전 방문 유도 공지',
-      ops: 'AS 차단 해제 확인 및 고객 대기 안내 문구 준비',
-      marketing: '회복률 82% 이상 확인 후 재방문 CRM 발송',
-      dday: 42, d1: 44, d2: 55, usage: 91, revenue: 87,
-      matrix: ['danger', 'normal', 'watch']
+      id: 'w01',
+      name: 'W-01 지점',
+      region: '권역 A',
+      status: 'limit',
+      signal: 'limit',
+      score: 100,
+      manager: '운영 A',
+      triggerType: '강수',
+      trigger: 'D-day 당일대응 · 예상 시간당 최대 강수 18mm',
+      weather: '현재 강수 0mm · 최대 강수확률 60% · AWS 0mm · 레이더 0mm/h',
+      asState: '정상',
+      csState: '고객 영향 확인 필요',
+      recovery: '회복 조치 필요 · CRM 가능',
+      vulnerability: '배수·입출차 안전',
+      action: '고객 유도/쿠폰 발송은 보류하고 배수·입출차 안전 확인 후 회복 준비',
+      rainNow: 0,
+      rainMax: 18,
+      forecastHour: '14:00',
+      dday: 58,
+      d1: 72,
+      d2: 86,
+      usage: 76,
+      revenue: 59,
+      csWaiting: 1,
+      recoveryPool: 14
     },
     {
-      id: 'w02', name: 'W-02 지점', region: '권역 B', risk: 'orange', score: 82,
-      manager: 'OPS-B 담당자', trigger: '강한 비 · 피크 전 수요 급락 가능',
-      weather: '강수확률 80% · 강수량 4mm · 풍속 4.2m/s',
-      as: '정상', recovery: 'CRM 가능', action: '17시 전 점검 완료 후 D+1 재방문 유도',
-      ops: '피크 전 배수/진입 동선 확인',
-      marketing: '고객 세그먼트별 회복 쿠폰 발송 대기',
-      dday: 68, d1: 82, d2: 91, usage: 88, revenue: 86,
-      matrix: ['caution', 'normal', 'caution']
+      id: 'w02',
+      name: 'W-02 지점',
+      region: '권역 B',
+      status: 'limit',
+      signal: 'limit',
+      score: 100,
+      manager: '운영 B',
+      triggerType: '강수',
+      trigger: 'D-day 당일대응 · 예상 시간당 최대 강수 22mm',
+      weather: '현재 강수 0mm · 최대 강수확률 60% · AWS 0mm · 레이더 0mm/h',
+      asState: '정상',
+      csState: '고객 영향 즉시 확인',
+      recovery: '회복 조치 필요 · CRM 가능',
+      vulnerability: '누전·진입 동선',
+      action: '고객 유도는 중단하고 누전·입출차 안전 및 재개 기준 확보 우선',
+      rainNow: 0,
+      rainMax: 22,
+      forecastHour: '12:00',
+      dday: 52,
+      d1: 69,
+      d2: 84,
+      usage: 72,
+      revenue: 51,
+      csWaiting: 2,
+      recoveryPool: 17
     },
     {
-      id: 'w03', name: 'W-03 지점', region: '권역 C', risk: 'orange', score: 76,
-      manager: 'OPS-C 담당자', trigger: '비/미세먼지 복합 · 예약 취소 증가',
-      weather: '강수확률 80% · 강수량 2mm · PM10 58',
-      as: '정상', recovery: 'CRM 가능', action: '회복 수요 사전 확보 및 CRM 승인 요청',
-      ops: '피크 전 현장 인력 배치 재점검',
-      marketing: '비/미세먼지 복합 고객군 리마인드 메시지',
-      dday: 70, d1: 79, d2: 88, usage: 85, revenue: 52,
-      matrix: ['caution', 'normal', 'caution']
+      id: 'w03',
+      name: 'W-03 지점',
+      region: '권역 C',
+      status: 'action',
+      signal: 'limit',
+      score: 84,
+      manager: '운영 C',
+      triggerType: '폭염',
+      trigger: 'D-day 당일대응 · 오늘 최고기온 33도',
+      weather: '현재 29.3도 · 최고기온 33도 · 강수 신호 없음',
+      asState: '정상',
+      csState: '고객 영향 발생 시 안내',
+      recovery: '회복 조치 필요 · CRM 가능',
+      vulnerability: '장비 과열·대기 동선',
+      action: '장비 과열 방지, 근무자 휴식, 고객 대기 동선 관리',
+      rainNow: 0,
+      rainMax: 2,
+      forecastHour: '15:00',
+      dday: 65,
+      d1: 82,
+      d2: 91,
+      usage: 83,
+      revenue: 75,
+      csWaiting: 0,
+      recoveryPool: 11
     },
     {
-      id: 'w04', name: 'W-04 지점', region: '권역 D', risk: 'yellow', score: 61,
-      manager: 'OPS-D 담당자', trigger: '비 예보 · 저녁 수요 가능성 낮음',
-      weather: '강수확률 70% · 강수량 4mm · 최고기온 30C',
-      as: '정상', recovery: 'CRM 대기', action: '마감 1시간 전 내수/신규 흐름 확인',
-      ops: '저녁 수요 회복 여부 확인',
-      marketing: '회복률 90% 미만 시 발송 보류',
-      dday: 61, d1: 78, d2: 87, usage: 55, revenue: 52,
-      matrix: ['watch', 'normal', 'watch']
+      id: 'w04',
+      name: 'W-04 지점',
+      region: '권역 D',
+      status: 'action',
+      signal: 'action',
+      score: 78,
+      manager: '운영 D',
+      triggerType: '강풍',
+      trigger: '사전점검 · 오후 순간풍속 10m/s 예상',
+      weather: '풍속 6.5m/s · 예상 최대 10m/s · 강수확률 40%',
+      asState: '정상',
+      csState: '대기 1건',
+      recovery: '회복 관찰',
+      vulnerability: '간판·외부 시설물',
+      action: '외부 시설물 고정 상태를 점검하고 고객 동선 안내 문구 준비',
+      rainNow: 0,
+      rainMax: 4,
+      forecastHour: '16:00',
+      dday: 70,
+      d1: 87,
+      d2: 96,
+      usage: 88,
+      revenue: 82,
+      csWaiting: 1,
+      recoveryPool: 9
     },
     {
-      id: 'w05', name: 'W-05 지점', region: '권역 E', risk: 'yellow', score: 58,
-      manager: 'OPS-E 담당자', trigger: '비 예보 · 오후 수요 가능성 낮음',
-      weather: '강수확률 60% · 강수량 3mm · 최고기온 30C',
-      as: '정상', recovery: 'CRM 대기', action: '오픈 전 배수/미끄럼 점검, 피크 전 대기열 확인',
-      ops: '오픈 전 안전 점검 유지',
-      marketing: 'CRM 후보 유지',
-      dday: 74, d1: 91, d2: 102, usage: 91, revenue: 87,
-      matrix: ['watch', 'normal', 'normal']
+      id: 'w05',
+      name: 'W-05 지점',
+      region: '권역 E',
+      status: 'caution',
+      signal: 'caution',
+      score: 62,
+      manager: '운영 E',
+      triggerType: '강수',
+      trigger: '주의 관찰 · 저녁 약한 비 예보',
+      weather: '현재 강수 0mm · 최대 강수확률 50% · 예상 5mm',
+      asState: '정상',
+      csState: '안내 대기 없음',
+      recovery: 'CRM 후보 관찰',
+      vulnerability: '배수로·미끄럼 주의',
+      action: '피크 전 배수 상태를 확인하고 회복 후보군은 성과 확인 후 발송',
+      rainNow: 0,
+      rainMax: 5,
+      forecastHour: '18:00',
+      dday: 78,
+      d1: 92,
+      d2: 101,
+      usage: 91,
+      revenue: 84,
+      csWaiting: 0,
+      recoveryPool: 12
     },
     {
-      id: 'w06', name: 'W-06 지점', region: '권역 F', risk: 'yellow', score: 54,
-      manager: 'OPS-F 담당자', trigger: '비 예보 · 신규 기준 수요 변동',
-      weather: '강수확률 60% · 강수량 3mm · 풍속 2.9m/s',
-      as: '정상', recovery: 'CRM 대기', action: '운영 로그 확인 및 피크 대응 기록',
-      ops: '신규 기준 운영 로그 확인',
-      marketing: '재방문 조건 충족 전 대기',
-      dday: 66, d1: 84, d2: 95, usage: 88, revenue: 86,
-      matrix: ['watch', 'normal', 'normal']
+      id: 'w06',
+      name: 'W-06 지점',
+      region: '권역 F',
+      status: 'normal',
+      signal: 'wait',
+      score: 46,
+      manager: '운영 F',
+      triggerType: '신호대기',
+      trigger: '신규 검증 신호 · shadow 기준 관찰',
+      weather: '강수확률 30% · 예상 1mm · AWS 정상',
+      asState: '정상',
+      csState: '정상',
+      recovery: '관찰',
+      vulnerability: '신규 기준 검증',
+      action: '운영 로그만 확인하고 shadow 신호 확정 전 별도 조치 보류',
+      rainNow: 0,
+      rainMax: 1,
+      forecastHour: '17:00',
+      dday: 86,
+      d1: 98,
+      d2: 106,
+      usage: 94,
+      revenue: 91,
+      csWaiting: 0,
+      recoveryPool: 8
     },
     {
-      id: 'w07', name: 'W-07 지점', region: '권역 G', risk: 'green', score: 22,
-      manager: 'OPS-G 담당자', trigger: '주의 없음',
-      weather: '강수확률 20% · 풍속 2.4m/s · 최고기온 28C',
-      as: '정상', recovery: '대상 없음', action: '정상 운영 유지',
-      ops: '정상 운영 유지',
-      marketing: '대상 없음',
-      dday: 93, d1: 105, d2: 111, usage: 88, revenue: 86,
-      matrix: ['normal', 'normal', 'normal']
+      id: 'w07',
+      name: 'W-07 지점',
+      region: '권역 G',
+      status: 'normal',
+      signal: 'normal',
+      score: 20,
+      manager: '운영 G',
+      triggerType: '정상',
+      trigger: '운영 영향 없음',
+      weather: '강수확률 20% · 풍속 2.4m/s · 최고기온 28도',
+      asState: '정상',
+      csState: '정상',
+      recovery: '대응 없음',
+      vulnerability: '특이사항 없음',
+      action: '정상 운영 유지',
+      rainNow: 0,
+      rainMax: 0,
+      forecastHour: '-',
+      dday: 93,
+      d1: 105,
+      d2: 111,
+      usage: 97,
+      revenue: 96,
+      csWaiting: 0,
+      recoveryPool: 14
     }
   ];
 
+  var sourceStatus = [
+    { label: '단기예보', value: '정상', sub: '기준 07-27 08:00', level: 'good' },
+    { label: '실황', value: '정상', sub: '기준 07-27 08:00', level: 'good' },
+    { label: '에어코리아', value: '정상', sub: '기준 07-27 09:00', level: 'good' },
+    { label: 'AWS', value: '정상', sub: '기준 07-27 09:36', level: 'good' },
+    { label: '레이더', value: '정상', sub: '기준 07-27 09:15', level: 'good' },
+    { label: '기상특보', value: '조회 정상', sub: '활성 특보 없음', level: 'good' }
+  ];
+
   var timeline = [
-    { time: '07:30', label: '오픈 전 점검', level: 'yellow' },
-    { time: '09:10', label: '종합 요약', level: 'orange' },
-    { time: '17:00', label: '피크 전 준비', level: 'orange' },
-    { time: '마감-1h', label: '마감 전 점검', level: 'yellow' }
+    { time: '07:30', label: '기상 원천 갱신 및 취약정보 매칭', level: 'normal' },
+    { time: '08:10', label: '제한확인 지점 운영 큐 생성', level: 'limit' },
+    { time: '10:30', label: '현장 안전 확인 및 고객 안내 대기', level: 'action' },
+    { time: '14:00', label: '강수 피크 전 회복 액션 보류/승인 판단', level: 'limit' },
+    { time: 'D+1', label: '회복률 기준 CRM 후보 재분류', level: 'caution' }
   ];
 
   var systems = [
-    { label: '마지막 요약', value: '06. 29. 오후 02:43', level: 'good' },
-    { label: '매출 동기화', value: '06. 29. 오후 02:43', level: 'good' },
-    { label: 'Apps Script', value: 'v2.15.2', level: 'good' },
-    { label: '데이터 상태', value: '생성 데이터', level: 'warn' },
-    { label: '주의 신호', value: '실외 AS API 연결 대기 1건', level: 'warn' }
+    { label: '운영 판단', value: '가능 · mock', level: 'good' },
+    { label: '운영 원장', value: '제한확인', level: 'warn' },
+    { label: '기상 신호', value: '제한확인', level: 'warn' },
+    { label: '신규 검증', value: 'shadow', level: 'info' },
+    { label: '실제 원천 오류', value: '0개점', level: 'good' },
+    { label: '데이터 범위', value: '가상 7개점', level: 'info' }
   ];
 
-  function $(id) { return document.getElementById(id); }
-  function clsRisk(risk) {
-    if (risk === 'red') return 'red';
-    if (risk === 'orange') return 'orange';
-    if (risk === 'yellow') return 'yellow';
-    return 'green';
+  function $(id) {
+    return document.getElementById(id);
   }
-  function riskLabel(risk) {
-    return ({ red: '위험', orange: '조치', yellow: '주의', green: '정상' })[risk] || '정상';
+
+  function statusLabel(status) {
+    var found = statusFilters.find(function (filter) { return filter.id === status; });
+    return found ? found.label : '정상';
   }
-  function filteredStores() {
-    return stores.filter(function (s) {
-      var riskOk = state.risk === 'all' || s.risk === state.risk;
-      var storeOk = state.store === 'all' || s.id === state.store;
-      return riskOk && storeOk;
+
+  function statusClass(status) {
+    if (status === 'error') return 'error';
+    if (status === 'limit') return 'limit';
+    if (status === 'action') return 'action';
+    if (status === 'caution') return 'caution';
+    if (status === 'wait') return 'wait';
+    return 'normal';
+  }
+
+  function selectedStores() {
+    return stores.filter(function (store) {
+      var statusOk = state.status === 'all' || store.status === state.status || store.signal === state.status;
+      var storeOk = state.store === 'all' || store.id === state.store;
+      return statusOk && storeOk;
     });
-  }
-  function pctClass(v) {
-    if (v >= 100) return 'high';
-    if (v >= 90) return 'mid';
-    return 'low';
   }
 
   function renderMetrics() {
-    $('metricGrid').innerHTML = metrics.map(function (m) {
-      return '<div class="metric"><div class="metric-label">' + m.label + '</div><div class="metric-value">' +
-        m.value + '</div><div class="metric-sub">' + m.sub + '</div></div>';
+    $('metricGrid').innerHTML = metrics.map(function (metric) {
+      return '<div class="metric">' +
+        '<div class="metric-label">' + metric.label + '</div>' +
+        '<div class="metric-value">' + metric.value + '</div>' +
+        '<div class="metric-sub">' + metric.sub + '</div>' +
+      '</div>';
     }).join('');
   }
 
   function renderControls() {
-    $('riskFilters').innerHTML = filters.map(function (f) {
-      return '<button class="filter-btn ' + (state.risk === f.id ? 'active' : '') + '" data-risk="' + f.id + '">' + f.label + '</button>';
+    $('tabNav').innerHTML = tabs.map(function (tab) {
+      return '<button class="tab-btn ' + (state.tab === tab.id ? 'active' : '') + '" type="button" data-tab="' + tab.id + '">' + tab.label + '</button>';
     }).join('');
-    $('storeSelect').innerHTML = '<option value="all">전체 지점</option>' + stores.map(function (s) {
-      return '<option value="' + s.id + '">' + s.name + '</option>';
+
+    $('statusFilters').innerHTML = statusFilters.map(function (filter) {
+      return '<button class="filter-btn ' + (state.status === filter.id ? 'active' : '') + '" type="button" data-status="' + filter.id + '">' + filter.label + '</button>';
+    }).join('');
+
+    $('storeSelect').innerHTML = '<option value="all">전체 지점</option>' + stores.map(function (store) {
+      return '<option value="' + store.id + '">' + store.name + '</option>';
     }).join('');
     $('storeSelect').value = state.store;
   }
 
-  function renderStoreCards() {
-    var list = filteredStores();
-    $('storeCount').textContent = list.length + '개 지점';
-    $('storeCards').innerHTML = list.map(function (s) {
-      return '<button class="store-card ' + (state.store === s.id ? 'active' : '') + '" data-store="' + s.id + '">' +
-        '<div class="name">' + s.name + '</div>' +
-        '<div class="manager">' + s.region + ' · ' + s.manager + '</div>' +
-        '<span class="badge ' + clsRisk(s.risk) + '">' + riskLabel(s.risk) + '</span>' +
-        '<span class="small">' + s.trigger + '</span>' +
-        '<span class="small">' + s.weather + '</span>' +
+  function priorityList(list) {
+    return list
+      .filter(function (store) { return store.status !== 'normal' || store.signal !== 'normal'; })
+      .sort(function (a, b) { return b.score - a.score; })
+      .slice(0, 5)
+      .map(function (store, index) {
+        return '<button class="queue-card" type="button" data-store="' + store.id + '">' +
+          '<span class="rank">' + (index + 1) + '</span>' +
+          '<div>' +
+            '<strong>' + store.triggerType + ' · ' + store.name + '</strong>' +
+            '<p>' + store.action + '</p>' +
+            '<small>' + store.manager + ' · 운영 점수 ' + store.score + '</small>' +
+          '</div>' +
+          '<span class="badge ' + statusClass(store.status) + '">' + statusLabel(store.status) + '</span>' +
+        '</button>';
+      }).join('');
+  }
+
+  function matrixTable(list) {
+    return '<div class="table-wrap">' +
+      '<table>' +
+        '<thead>' +
+          '<tr>' +
+            '<th>지점</th>' +
+            '<th>운영/신호</th>' +
+            '<th>기상/트리거</th>' +
+            '<th>AS</th>' +
+            '<th>CS/고객</th>' +
+            '<th>회복</th>' +
+            '<th>담당</th>' +
+            '<th>다음 액션</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody>' +
+          list.map(function (store) {
+            return '<tr>' +
+              '<td><strong>' + store.name + '</strong><small>' + store.region + ' · 점수 ' + store.score + '</small></td>' +
+              '<td><span class="badge ' + statusClass(store.status) + '">' + statusLabel(store.status) + '</span>' +
+                '<span class="badge ' + statusClass(store.signal) + '">신호 ' + statusLabel(store.signal) + '</span></td>' +
+              '<td><strong>' + store.triggerType + '</strong><small>' + store.trigger + '<br>' + store.weather + '</small></td>' +
+              '<td>' + store.asState + '</td>' +
+              '<td>' + store.csState + '</td>' +
+              '<td>' + store.recovery + '</td>' +
+              '<td>' + store.manager + '</td>' +
+              '<td>' + store.action + '</td>' +
+            '</tr>';
+          }).join('') +
+        '</tbody>' +
+      '</table>' +
+    '</div>';
+  }
+
+  function storeCards(list) {
+    return '<div class="store-card-grid">' + list.map(function (store) {
+      return '<button class="store-card" type="button" data-store="' + store.id + '">' +
+        '<div class="store-top">' +
+          '<strong>' + store.name + '</strong>' +
+          '<span class="badge ' + statusClass(store.status) + '">' + statusLabel(store.status) + '</span>' +
+        '</div>' +
+        '<p>' + store.region + ' · ' + store.manager + '</p>' +
+        '<small>' + store.trigger + '</small>' +
+        '<div class="store-meta">' +
+          '<span>CS ' + store.csWaiting + '건</span>' +
+          '<span>회복 ' + store.recoveryPool + '건</span>' +
+        '</div>' +
       '</button>';
-    }).join('') || '<div class="empty">현재 필터 기준 지점이 없습니다.</div>';
+    }).join('') + '</div>';
   }
 
-  function renderActions() {
-    var list = filteredStores();
-    var ops = list.filter(function (s) { return s.risk !== 'green'; }).slice(0, 4);
-    var mkt = list.filter(function (s) { return s.recovery === 'CRM 가능'; });
-    function item(s, type) {
-      return '<div class="action-item"><div class="action-top"><span class="action-title">' +
-        (type === 'ops' ? s.ops : s.marketing) + '</span><span class="action-owner">' + s.manager.split(' ')[0] + '</span></div>' +
-        '<div class="action-meta">' + s.name + ' · ' + s.weather + '</div></div>';
-    }
-    $('opsActions').innerHTML = ops.map(function (s) { return item(s, 'ops'); }).join('') || '<div class="action-item">현재 필터 기준 조치 항목이 없습니다.</div>';
-    $('mktActions').innerHTML = mkt.map(function (s) { return item(s, 'mkt'); }).join('') || '<div class="action-item">현재 필터 기준 실행 대기가 없습니다.</div>';
-  }
-
-  function renderRecoveryQueue() {
-    var rows = filteredStores().filter(function (s) { return s.recovery !== '대상 없음'; }).slice(0, 5);
-    $('recoveryQueue').innerHTML = rows.map(function (s) {
-      return '<div class="queue-item"><div><div class="queue-title">' + s.name + '</div><div class="queue-sub">D+1 재방문 회복률 ' + s.d1 + '%</div></div>' +
-        '<div class="queue-meta">' + s.action + '</div><span class="badge ' + clsRisk(s.risk) + '">' + s.as + '</span><span class="badge green">' + s.recovery + '</span></div>';
-    }).join('') || '<div class="action-item">현재 필터 기준 회복 큐가 없습니다.</div>';
-  }
-
-  function renderRiskMatrix() {
-    var rows = filteredStores();
-    var html = '<div class="risk-head">지점</div><div class="risk-head">강수/기상</div><div class="risk-head">AS</div><div class="risk-head">회복</div>';
-    html += rows.map(function (s) {
-      return '<div class="risk-head">' + s.name + '</div>' +
-        '<div class="risk-cell ' + s.matrix[0] + '">' + (s.matrix[0] === 'danger' ? '위험' : s.matrix[0] === 'caution' ? '조치' : s.matrix[0] === 'watch' ? '주의' : '정상') + '</div>' +
-        '<div class="risk-cell ' + s.matrix[1] + '">' + (s.as === 'AS 차단' ? '차단' : '정상') + '</div>' +
-        '<div class="risk-cell ' + s.matrix[2] + '">' + (s.matrix[2] === 'caution' ? '조치' : s.matrix[2] === 'watch' ? '주의' : '정상') + '</div>';
-    }).join('');
-    $('riskMatrix').innerHTML = html;
-  }
-
-  function renderFunnel() {
-    var stages = [
-      { label: '하락 감지', count: 3, note: '전 단계 대비 100% 유지 · 0건 이탈' },
-      { label: '조치 필요', count: 3, note: '전 단계 대비 100% 유지 · 0건 이탈' },
-      { label: '정상화 통과', count: 2, note: '전 단계 대비 67% 유지 · 1건 이탈' },
-      { label: 'CRM 후보', count: 2, note: '전 단계 대비 100% 유지 · 0건 이탈' },
-      { label: '발송/실행', count: 0, note: '전 단계 대비 0% 유지 · 2건 이탈' },
-      { label: '재방문 회수', count: 0, note: '전 단계 대비 - 유지 · 0건 이탈' }
+  function vulnerabilityCards() {
+    var items = [
+      { label: '강수 취약정보', value: '7개점' },
+      { label: '출입·동선 확인', value: '2개점' },
+      { label: '방수·전기·설비', value: '6개점' },
+      { label: '시·도 레이더 대체', value: '0개점' },
+      { label: '실제 원천 오류', value: '0개점' }
     ];
-    $('funnel').innerHTML = stages.map(function (s) {
-      return '<div class="funnel-row"><div class="funnel-label">' + s.label + '</div><div class="bar-track"><div class="bar-fill" style="width:' + (s.count / 3 * 100) + '%"></div></div><div class="funnel-count">' + s.count + '</div><div class="funnel-note">' + s.note + '</div></div>';
-    }).join('');
+    return '<div class="chip-grid">' + items.map(function (item) {
+      return '<button class="chip-card" type="button"><strong>' + item.label + '</strong><span>' + item.value + '</span></button>';
+    }).join('') + '</div>';
   }
 
-  function renderRecoveryTable() {
-    var rows = filteredStores();
-    var html = '<div class="recovery-head">지점</div><div class="recovery-head">D-day</div><div class="recovery-head">D+1</div><div class="recovery-head">D+2</div>';
-    html += rows.map(function (s) {
-      return '<div class="recovery-head">' + s.name + '</div>' +
-        '<div class="recovery-cell ' + pctClass(s.dday) + '"><strong>' + s.dday + '%</strong><span>매출 ' + Math.max(20, s.dday - 4) + '%</span></div>' +
-        '<div class="recovery-cell ' + pctClass(s.d1) + '"><strong>' + s.d1 + '%</strong><span>매출 ' + Math.max(25, s.d1 - 5) + '%</span></div>' +
-        '<div class="recovery-cell ' + pctClass(s.d2) + '"><strong>' + s.d2 + '%</strong><span>매출 ' + Math.max(30, s.d2 - 4) + '%</span></div>';
-    }).join('');
-    $('recoveryTable').innerHTML = html;
+  function recoveryTable(list) {
+    return '<div class="recovery-table">' +
+      '<div class="recovery-head">지점</div><div class="recovery-head">D-day</div><div class="recovery-head">D+1</div><div class="recovery-head">D+2</div>' +
+      list.map(function (store) {
+        return '<div class="recovery-head">' + store.name + '</div>' +
+          recoveryCell(store.dday) +
+          recoveryCell(store.d1) +
+          recoveryCell(store.d2);
+      }).join('') +
+    '</div>';
   }
 
-  function renderGaps() {
-    var rows = filteredStores().slice(0, 5);
-    $('gapList').innerHTML = rows.map(function (s) {
-      return '<div class="gap-item"><div class="gap-top"><span>' + s.name + '</span><span>갭 ' + Math.abs(s.usage - s.revenue) + '%p · ' + (s.usage > s.revenue ? '매출 확인' : '균형') + '</span></div>' +
-        '<div class="gap-rail"><span class="usage-dot" style="left:' + Math.min(96, s.usage) + '%"></span><span class="revenue-dot" style="left:' + Math.min(96, s.revenue) + '%"></span></div>' +
-        '<div class="gap-legend"><span>이용 ' + s.usage + '%</span><span>매출 ' + s.revenue + '%</span></div></div>';
-    }).join('');
+  function recoveryCell(value) {
+    var klass = value >= 95 ? 'high' : value >= 80 ? 'mid' : 'low';
+    return '<div class="recovery-cell ' + klass + '"><strong>' + value + '%</strong><span>처리대수 기준</span></div>';
   }
 
-  function renderTable() {
-    $('storeRows').innerHTML = filteredStores().map(function (s) {
-      return '<tr><td><strong>' + s.name + '</strong><small>' + s.region + ' · 점수 ' + s.score + '</small></td>' +
-        '<td><span class="badge ' + clsRisk(s.risk) + '">' + riskLabel(s.risk) + '</span></td>' +
-        '<td>' + s.trigger + '<br><small>' + s.weather + '</small></td>' +
-        '<td>' + s.as + '</td><td>' + s.recovery + '</td><td>' + s.manager + '</td><td>' + s.action + '</td></tr>';
-    }).join('');
+  function gapList(list) {
+    return '<div class="gap-list">' + list.map(function (store) {
+      var gap = Math.abs(store.usage - store.revenue);
+      return '<div class="gap-item">' +
+        '<div class="gap-top"><strong>' + store.name + '</strong><span>격차 ' + gap + '%p</span></div>' +
+        '<div class="gap-rail">' +
+          '<span class="usage-dot" style="left:' + Math.min(96, store.usage) + '%"></span>' +
+          '<span class="revenue-dot" style="left:' + Math.min(96, store.revenue) + '%"></span>' +
+        '</div>' +
+        '<div class="gap-legend"><span>이용 ' + store.usage + '%</span><span>매출 ' + store.revenue + '%</span></div>' +
+      '</div>';
+    }).join('') + '</div>';
   }
 
-  function renderTimeline() {
-    $('timeline').innerHTML = timeline.map(function (t) {
-      return '<div class="timeline-item"><span class="timeline-time">' + t.time + '</span><span>' + t.label + '</span><span class="badge ' + t.level + '">' + t.level + '</span></div>';
-    }).join('');
+  function sourceCards() {
+    return '<div class="source-grid">' + sourceStatus.map(function (source) {
+      return '<div class="source-card ' + source.level + '">' +
+        '<span>' + source.label + '</span>' +
+        '<strong>' + source.value + '</strong>' +
+        '<small>' + source.sub + '</small>' +
+      '</div>';
+    }).join('') + '</div>';
   }
 
-  function renderSystem() {
-    $('systemStatus').innerHTML = systems.map(function (s) {
-      return '<div class="system-card ' + s.level + '"><span>' + s.label + '</span><strong>' + s.value + '</strong></div>';
-    }).join('');
+  function timelineList() {
+    return '<div class="timeline">' + timeline.map(function (item) {
+      return '<div class="timeline-item">' +
+        '<span class="timeline-time">' + item.time + '</span>' +
+        '<span>' + item.label + '</span>' +
+        '<span class="badge ' + statusClass(item.level) + '">' + statusLabel(item.level) + '</span>' +
+      '</div>';
+    }).join('') + '</div>';
   }
 
-  function bind() {
-    $('riskFilters').addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-risk]');
-      if (!btn) return;
-      state.risk = btn.getAttribute('data-risk');
-      render();
+  function systemCards() {
+    return '<div class="system-grid">' + systems.map(function (system) {
+      return '<div class="system-card ' + system.level + '">' +
+        '<span>' + system.label + '</span>' +
+        '<strong>' + system.value + '</strong>' +
+      '</div>';
+    }).join('') + '</div>';
+  }
+
+  function renderToday(list) {
+    return '<section class="grid two">' +
+      '<article class="panel">' +
+        '<div class="section-head"><div><h2>우선 확인 큐 <span>ⓘ</span></h2><p>기상 신호와 운영 리스크를 함께 반영해 오늘 먼저 확인할 지점을 정렬했습니다.</p></div></div>' +
+        '<div class="queue-list">' + priorityList(list) + '</div>' +
+      '</article>' +
+      '<article class="panel">' +
+        '<div class="section-head"><div><h2>데이터 상태 <span>ⓘ</span></h2><p>가상 원천 기준으로 판단 가능 여부와 오류 상태를 빠르게 확인합니다.</p></div></div>' +
+        systemCards() +
+      '</article>' +
+    '</section>' +
+    '<section class="grid two">' +
+      '<article class="panel wide-panel">' +
+        '<div class="section-head"><div><h2>지점 운영 매트릭스 <span>ⓘ</span></h2><p>운영 상태, 기상 트리거, CS 영향, 회복 가능 여부를 한 줄에서 비교합니다.</p></div></div>' +
+        matrixTable(list) +
+      '</article>' +
+      '<article class="panel">' +
+        '<div class="section-head"><div><h2>현재 강수 vs 예보 최대 <span>ⓘ</span></h2><p>현재 관측과 오늘 남은 시간 예보 최대치를 비교합니다.</p></div></div>' +
+        '<canvas id="rainChart" height="260" aria-label="현재 강수와 예보 최대 비교 차트"></canvas>' +
+      '</article>' +
+    '</section>';
+  }
+
+  function renderDetail(list) {
+    return '<section class="panel">' +
+      '<div class="section-head"><div><h2>현장 취약정보 <span>ⓘ</span></h2><p>강수·강풍 신호가 있는 지점에 필요한 현장 확인 항목을 묶었습니다.</p></div></div>' +
+      vulnerabilityCards() +
+    '</section>' +
+    '<section class="panel">' +
+      '<div class="section-head"><div><h2>지점 상세 <span>ⓘ</span></h2><p>지점 카드를 선택하면 전체 화면이 해당 지점 기준으로 재계산됩니다.</p></div><span class="count-pill">' + list.length + '개 지점</span></div>' +
+      storeCards(list) +
+    '</section>' +
+    '<section class="panel">' +
+      '<div class="section-head"><div><h2>지점 운영 매트릭스 <span>ⓘ</span></h2><p>상태 필터와 지점 선택값을 반영한 상세 테이블입니다.</p></div></div>' +
+      matrixTable(list) +
+    '</section>';
+  }
+
+  function renderRecovery(list) {
+    return '<section class="grid two">' +
+      '<article class="panel">' +
+        '<div class="section-head"><div><h2>회복 실행 단계 <span>ⓘ</span></h2><p>기상 하락 감지 후 정상화, CRM 후보, 성과 확인까지의 단계를 추적합니다.</p></div></div>' +
+        '<div class="funnel">' +
+          funnelRow('신호 감지', 6, 6) +
+          funnelRow('조치 필요', 4, 6) +
+          funnelRow('정상화 통과', 4, 6) +
+          funnelRow('CRM 후보', 7, 10) +
+          funnelRow('성과 대기', 17, 20) +
+        '</div>' +
+      '</article>' +
+      '<article class="panel">' +
+        '<div class="section-head"><div><h2>이용 회복 vs 매출 회복 <span>ⓘ</span></h2><p>이용량은 회복됐지만 매출 회복이 따라오지 않는 지점을 우선 찾습니다.</p></div></div>' +
+        gapList(list.slice(0, 5)) +
+      '</article>' +
+    '</section>' +
+    '<section class="panel">' +
+      '<div class="section-head"><div><h2>지점별 회복 진행 <span>ⓘ</span></h2><p>D-day, D+1, D+2 회복률을 단계별로 비교합니다.</p></div></div>' +
+      recoveryTable(list) +
+    '</section>';
+  }
+
+  function funnelRow(label, value, max) {
+    return '<div class="funnel-row">' +
+      '<span class="funnel-label">' + label + '</span>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + Math.min(100, value / max * 100) + '%"></div></div>' +
+      '<strong>' + value + '</strong>' +
+    '</div>';
+  }
+
+  function renderData(list) {
+    return '<section class="panel">' +
+      '<div class="section-head"><div><h2>기상 원천 상태 <span>ⓘ</span></h2><p>대시보드 판단에 쓰이는 주요 원천의 최신 상태입니다.</p></div></div>' +
+      sourceCards() +
+    '</section>' +
+    '<section class="grid two">' +
+      '<article class="panel">' +
+        '<div class="section-head"><div><h2>오늘 운영 타임라인 <span>ⓘ</span></h2><p>기상 신호와 현장 확인, 고객 안내 판단 시점을 정리했습니다.</p></div></div>' +
+        timelineList() +
+      '</article>' +
+      '<article class="panel">' +
+        '<div class="section-head"><div><h2>시스템 상태 <span>ⓘ</span></h2><p>목업은 비식별 가상 데이터로 구성되며 실제 원천에는 연결하지 않습니다.</p></div></div>' +
+        systemCards() +
+      '</article>' +
+    '</section>' +
+    '<section class="panel">' +
+      '<div class="section-head"><div><h2>지점 운영 매트릭스 <span>ⓘ</span></h2><p>데이터 상태 화면에서도 동일한 운영 판단 테이블을 확인할 수 있습니다.</p></div></div>' +
+      matrixTable(list) +
+    '</section>';
+  }
+
+  function emptyState() {
+    return '<section class="panel"><div class="empty">현재 필터 조건에 맞는 지점이 없습니다.</div></section>';
+  }
+
+  function drawRainChart() {
+    var canvas = $('rainChart');
+    if (!canvas) return;
+
+    var list = selectedStores();
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.getBoundingClientRect();
+    var width = Math.max(320, rect.width);
+    var height = 260;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.height = height + 'px';
+
+    var ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    ctx.font = '12px Pretendard, sans-serif';
+    ctx.fillStyle = '#667085';
+    ctx.strokeStyle = '#e4eaf1';
+    ctx.lineWidth = 1;
+
+    var padding = { top: 24, right: 18, bottom: 42, left: 38 };
+    var chartW = width - padding.left - padding.right;
+    var chartH = height - padding.top - padding.bottom;
+    var maxRain = Math.max(24, Math.max.apply(null, list.map(function (store) { return store.rainMax; })));
+
+    for (var i = 0; i <= 4; i++) {
+      var y = padding.top + chartH / 4 * i;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, y);
+      ctx.lineTo(width - padding.right, y);
+      ctx.stroke();
+      ctx.fillText(Math.round(maxRain - maxRain / 4 * i) + 'mm', 4, y + 4);
+    }
+
+    var barGap = 10;
+    var groupW = chartW / list.length;
+    list.forEach(function (store, index) {
+      var baseX = padding.left + groupW * index + groupW * 0.24;
+      var currentH = chartH * (store.rainNow / maxRain);
+      var forecastH = chartH * (store.rainMax / maxRain);
+      var barW = Math.max(8, Math.min(18, groupW * 0.18));
+      var baseY = padding.top + chartH;
+
+      ctx.fillStyle = '#7aa7cf';
+      ctx.fillRect(baseX, baseY - currentH, barW, currentH || 2);
+      ctx.fillStyle = '#d8792f';
+      ctx.fillRect(baseX + barW + barGap, baseY - forecastH, barW, forecastH || 2);
+      ctx.fillStyle = '#17202a';
+      ctx.textAlign = 'center';
+      ctx.fillText(store.name.replace(' 지점', ''), baseX + barW + barGap / 2, height - 14);
     });
-    $('storeSelect').addEventListener('change', function (e) {
-      state.store = e.target.value;
-      render();
-    });
-    $('storeCards').addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-store]');
-      if (!btn) return;
-      state.store = btn.getAttribute('data-store');
-      render();
-    });
-    $('refreshBtn').addEventListener('click', function () {
-      this.textContent = '갱신 완료';
-      var self = this;
-      setTimeout(function () { self.textContent = '새로고침'; }, 1200);
-    });
-    $('copyBtn').addEventListener('click', function () {
-      var orange = stores.filter(function (s) { return s.risk === 'orange'; }).map(function (s) { return s.name; }).join(', ');
-      var summary = '[Weather Ops] Orange ' + stores.filter(function (s) { return s.risk === 'orange'; }).length + '개 지점: ' + orange + ' 우선 점검';
-      if (navigator.clipboard) navigator.clipboard.writeText(summary);
-      this.textContent = '복사 완료';
-      var self = this;
-      setTimeout(function () { self.textContent = '요약 복사'; }, 1200);
-    });
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#7aa7cf';
+    ctx.fillRect(padding.left, 8, 10, 10);
+    ctx.fillStyle = '#667085';
+    ctx.fillText('현재 강수', padding.left + 16, 17);
+    ctx.fillStyle = '#d8792f';
+    ctx.fillRect(padding.left + 92, 8, 10, 10);
+    ctx.fillStyle = '#667085';
+    ctx.fillText('예보 최대', padding.left + 108, 17);
+  }
+
+  function renderDashboard() {
+    var list = selectedStores();
+    var dashboard = $('dashboard');
+    if (!list.length) {
+      dashboard.innerHTML = emptyState();
+      return;
+    }
+
+    if (state.tab === 'detail') {
+      dashboard.innerHTML = renderDetail(list);
+    } else if (state.tab === 'recovery') {
+      dashboard.innerHTML = renderRecovery(list);
+    } else if (state.tab === 'data') {
+      dashboard.innerHTML = renderData(list);
+    } else {
+      dashboard.innerHTML = renderToday(list);
+      window.requestAnimationFrame(drawRainChart);
+    }
   }
 
   function render() {
     renderControls();
-    renderStoreCards();
-    renderActions();
-    renderRecoveryQueue();
-    renderRiskMatrix();
-    renderRecoveryTable();
-    renderGaps();
-    renderTable();
-    renderTimeline();
-    renderSystem();
+    renderDashboard();
+  }
+
+  function bindEvents() {
+    $('tabNav').addEventListener('click', function (event) {
+      var button = event.target.closest('[data-tab]');
+      if (!button) return;
+      state.tab = button.getAttribute('data-tab');
+      render();
+    });
+
+    $('statusFilters').addEventListener('click', function (event) {
+      var button = event.target.closest('[data-status]');
+      if (!button) return;
+      state.status = button.getAttribute('data-status');
+      render();
+    });
+
+    $('storeSelect').addEventListener('change', function (event) {
+      state.store = event.target.value;
+      render();
+    });
+
+    $('dashboard').addEventListener('click', function (event) {
+      var button = event.target.closest('[data-store]');
+      if (!button) return;
+      state.store = button.getAttribute('data-store');
+      render();
+    });
+
+    $('refreshBtn').addEventListener('click', function () {
+      var button = this;
+      button.textContent = '갱신 완료';
+      setTimeout(function () { button.textContent = '새로고침'; }, 1000);
+    });
+
+    $('copyBtn').addEventListener('click', function () {
+      var topStores = stores
+        .filter(function (store) { return store.status === 'limit' || store.status === 'action'; })
+        .map(function (store) { return store.name; })
+        .join(', ');
+      var summary = '[Weather Ops] 제한확인 2개점, 조치 2개점. 우선 확인: ' + topStores + '.';
+      if (navigator.clipboard) navigator.clipboard.writeText(summary);
+      var button = this;
+      button.textContent = '복사 완료';
+      setTimeout(function () { button.textContent = '요약 복사'; }, 1000);
+    });
+
+    window.addEventListener('resize', function () {
+      if (state.tab === 'today') drawRainChart();
+    });
   }
 
   renderMetrics();
-  renderFunnel();
   render();
-  bind();
+  bindEvents();
 })();
