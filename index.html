@@ -2,55 +2,299 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
+  <meta name="portfolio-data-source" content="synthetic">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>[OPS] Weather Ops Dashboard</title>
-  <meta name="description" content="기상 리스크, 현장 정상화, 회복 수요를 하나의 운영 판단 화면으로 정리한 Weather Ops 포트폴리오 데모">
+  <title>[OPS] Weather Ops Dashboard | 포트폴리오 데모</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.css">
-  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="style.css">
+  <script
+    src="./vendor/chart.umd.min.js"
+    integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g"
+    crossorigin="anonymous"></script>
 </head>
 <body>
-  <div class="portfolio-banner">
-    포트폴리오 데모 · 실사용 운영 구조를 반영한 비식별 가상 데이터입니다.
+  <div id="loadingOverlay" class="loading-overlay" aria-live="polite" aria-busy="true">
+    <div class="loading-card">
+      <div class="loading-title">[OPS] Weather Ops Dashboard</div>
+      <div class="loading-sub">기상 리스크와 회복 액션을 불러오는 중입니다.</div>
+      <div class="loading-bar"><span id="loadingBar"></span></div>
+    </div>
   </div>
 
-  <div class="wrap">
-    <header class="hero">
+  <div id="errorBanner" class="global-banner" role="status" aria-live="polite" hidden></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <main class="app-shell">
+    <header class="hero command-hero">
       <div class="hero-main">
-        <div>
-          <div class="eyebrow">AUTOSTAY DIRECT STORES · WEATHER OPS</div>
+        <div class="hero-identity">
+          <div class="eyebrow">PORTFOLIO DEMO / WEATHER OPS</div>
           <h1>[OPS] Weather Ops Dashboard</h1>
-          <p>
-            기상 신호, 현장 취약정보, AS 차단 여부, 고객 안내 필요성, 회복 액션을
-            하나의 화면에서 확인해 오늘의 운영 우선순위를 빠르게 결정합니다.
-          </p>
-          <div class="hero-meta">
-            <span>업데이트 07-27 10:31</span>
-            <span>버전 sample-v2.16</span>
-            <span>비식별 가상 데이터</span>
-            <span>운영 판단 가능 · mock</span>
+          <div class="hero-actions">
+            <span class="logout-link">비식별 가상 데이터</span>
+            <div id="heroMeta" class="hero-meta"></div>
           </div>
         </div>
-        <aside class="decision-card">
-          <span>오늘의 운영 판단</span>
-          <strong>기상 신호 제한확인</strong>
-          <p>즉시확인 6개점, 사전점검 1개점, 데이터확인 0개점으로 분류했습니다.</p>
+        <aside class="command-card" aria-label="오늘의 운영 판단">
+          <div class="command-label">오늘의 운영 판단</div>
+          <div id="overallStatus" class="status-word">-</div>
+          <div id="headline" class="command-body">데이터 로딩 중</div>
         </aside>
       </div>
-      <div class="metric-grid" id="metricGrid"></div>
+      <section id="kpiStrip" class="kpi-strip mission-strip" aria-label="운영 목적 상태"></section>
+      <section id="decisionBanner" class="decision-banner" aria-label="운영 판단 상태" hidden></section>
     </header>
 
-    <section class="toolbar" aria-label="Weather Ops dashboard controls">
-      <nav class="tabs" id="tabNav" aria-label="대시보드 보기"></nav>
-      <div class="filters" id="statusFilters" aria-label="상태 필터"></div>
-      <select id="storeSelect" aria-label="지점 선택"></select>
-      <button id="refreshBtn" type="button">새로고침</button>
-      <button id="copyBtn" type="button">요약 복사</button>
+    <nav class="dashboard-tabs" role="tablist" aria-label="대시보드 보기">
+      <button id="tab-overview" class="dashboard-tab active" type="button" role="tab" aria-selected="true" aria-controls="panel-overview" data-tab-target="overview">오늘 판단</button>
+      <button id="tab-stores" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-stores" data-tab-target="stores" tabindex="-1">지점 상세</button>
+      <button id="tab-recovery" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-recovery" data-tab-target="recovery" tabindex="-1">회복</button>
+      <button id="tab-data" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-data" data-tab-target="data" tabindex="-1">데이터 상태</button>
+    </nav>
+
+    <section class="toolbar" aria-label="대시보드 필터">
+      <div class="segmented" id="riskFilter">
+        <button class="active" data-risk="all">전체</button>
+        <button data-risk="Error">오류</button>
+        <button data-risk="Red">제한확인</button>
+        <button data-risk="Orange">조치</button>
+        <button data-risk="Yellow">주의</button>
+        <button data-risk="Green">정상</button>
+        <button data-risk="Gray">신호대기</button>
+      </div>
+      <select id="storeFilter" aria-label="지점 선택"></select>
+      <button id="refreshBtn" class="icon-btn" type="button" title="새로고침">새로고침</button>
+      <button id="copyBriefBtn" class="icon-btn secondary" type="button" title="Slack 공유용 요약 복사">요약 복사</button>
     </section>
 
-    <main id="dashboard" aria-live="polite"></main>
-  </div>
+    <section id="panel-overview" class="dashboard-tab-panel" role="tabpanel" aria-labelledby="tab-overview" data-tab-panel="overview">
+      <section class="overview-command-layout" aria-label="오늘 운영 판단 핵심 영역">
+        <article class="panel priority-panel">
+          <div class="panel-head compact-head">
+            <div>
+              <h2>우선 확인 큐</h2>
+              <p>지금 확인할 항목만 위험도순으로 최대 3건 표시합니다.</p>
+            </div>
+            <span id="priorityCount" class="tag">0건</span>
+          </div>
+          <div id="priorityQueue" class="priority-list"></div>
+          <button class="panel-link" type="button" data-open-tab="stores">전체 지점 상세</button>
+        </article>
+
+        <article class="panel map-panel command-matrix-panel">
+          <div class="panel-head compact-head">
+            <div>
+              <h2>지점 운영 매트릭스</h2>
+              <p>공식 기상 조치와 AS 상태를 분리해 확인합니다.</p>
+            </div>
+            <span id="mapCount" class="tag">7개 지점</span>
+          </div>
+          <div class="command-matrix" id="metroMap" aria-label="직영점 운영 매트릭스"></div>
+        </article>
+
+        <article class="panel weather-comparison-panel">
+          <div class="panel-head compact-head">
+            <div>
+              <h2>현재 강수 vs 예보 최대</h2>
+              <p>실황과 오늘 예보 피크의 차이가 큰 지점을 먼저 확인합니다.</p>
+            </div>
+          </div>
+          <div id="weatherComparison" class="weather-comparison"></div>
+        </article>
+
+        <article class="panel source-health-panel">
+          <div class="panel-head compact-head">
+            <div>
+              <h2>데이터 상태</h2>
+              <p>운영 판단에 필요한 원천 가용성과 부분 결측만 요약합니다.</p>
+            </div>
+          </div>
+          <div id="sourceHealthCompact" class="source-health-compact"></div>
+          <button class="panel-link" type="button" data-open-tab="data">원천/시스템 상세</button>
+        </article>
+      </section>
+    </section>
+
+    <section id="panel-stores" class="dashboard-tab-panel" role="tabpanel" aria-labelledby="tab-stores" data-tab-panel="stores" hidden>
+      <section id="actionSection" class="action-section" aria-label="오늘 조치할 항목">
+        <article class="panel action-panel">
+          <div class="panel-head">
+            <div>
+              <h2>오늘 조치할 항목</h2>
+              <p>공식 운영 액션과 승인 검토 후보를 분리합니다.</p>
+            </div>
+          </div>
+          <div class="action-columns">
+            <section>
+              <h3>사업운영팀 <span class="scope-label">오늘 실행</span></h3>
+              <div id="opsActions" class="action-list"></div>
+              <aside id="overdueExceptions" class="overdue-exceptions" aria-label="사업운영팀 과거 미종결 예외" hidden></aside>
+            </section>
+            <section>
+              <h3>마케팅팀 <span class="scope-label">승인 검토 후보</span></h3>
+              <div id="marketingActions" class="action-list"></div>
+            </section>
+          </div>
+        </article>
+      </section>
+
+      <section class="store-detail-grid">
+        <article id="riskPanel" class="panel risk-panel">
+          <div class="panel-head">
+            <div>
+              <h2>오늘 기상 리스크</h2>
+              <p>활성 리스크와 운영 게이트를 지점별로 비교합니다.</p>
+            </div>
+          </div>
+          <div id="riskMatrix" class="risk-matrix"></div>
+        </article>
+
+        <article class="panel table-panel">
+          <div class="panel-head">
+            <div>
+              <h2>지점별 상태</h2>
+              <p>담당, 고객 안내, 회복 상태와 다음 액션을 상세 비교합니다.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <caption class="sr-only">지점별 운영, 기상 신호, AS, 고객 안내, 회복 상태와 다음 액션</caption>
+              <thead>
+                <tr>
+                  <th scope="col">지점</th>
+                  <th scope="col">기상 조치/신호</th>
+                  <th scope="col">기상/트리거</th>
+                  <th scope="col">AS</th>
+                  <th scope="col">CS/고객</th>
+                  <th scope="col">회복</th>
+                  <th scope="col">담당</th>
+                  <th scope="col">다음 액션</th>
+                </tr>
+              </thead>
+              <tbody id="storeTable"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </section>
+
+    <section id="panel-recovery" class="dashboard-tab-panel" role="tabpanel" aria-labelledby="tab-recovery" data-tab-panel="recovery" hidden>
+      <section class="dashboard-grid primary-grid recovery-primary-grid" id="primaryDashboardGrid">
+        <article id="recoveryQueuePanel" class="panel queue-panel">
+          <div class="panel-head">
+            <div>
+              <h2>회복 큐</h2>
+              <p>최근 미완료 기록의 CRM 게이트와 AS 차단 상태를 확인합니다.</p>
+            </div>
+            <span id="recoveryQueueCount" class="tag">0건</span>
+          </div>
+          <div id="recoveryQueue" class="queue-list"></div>
+        </article>
+
+        <article class="panel chart-panel" id="recoveryChartPanel">
+          <div class="panel-head">
+            <div>
+              <h2>선택 지점 회복률</h2>
+              <p>지점 필터 선택 시 처리대수와 매출 회복 추이를 표시합니다.</p>
+            </div>
+          </div>
+          <div id="recoveryChartWrap" class="chart-wrap"><canvas id="recoveryChart"></canvas></div>
+        </article>
+      </section>
+
+      <section id="visualGrid" class="visual-grid" aria-label="회복 시각화">
+        <div class="visual-column">
+          <article id="recoveryFunnelPanel" class="panel funnel-panel">
+            <div class="panel-head">
+              <div>
+                <h2>회복 단계 현황</h2>
+                <p>단계별 집계와 CRM/재방문 실행의 정체를 확인합니다.</p>
+              </div>
+            </div>
+            <div id="recoveryFunnel" class="funnel-list"></div>
+          </article>
+        </div>
+
+        <div class="visual-column">
+          <article id="recoveryStagePanel" class="panel small-multiple-panel">
+            <div class="panel-head">
+              <div>
+                <h2>지점별 회복 진행</h2>
+                <p>D-day, D+1, D+2 처리대수/매출 회복률을 확인합니다.</p>
+              </div>
+            </div>
+            <div id="recoveryStageHeatmap" class="heatmap-table"></div>
+            <div id="processedBulletList" class="bullet-list"></div>
+          </article>
+
+          <article id="recoveryGapPanel" class="panel gap-panel">
+            <div class="panel-head">
+              <div>
+                <h2>처리대수 회복 vs 매출 회복</h2>
+                <p>처리대수보다 매출 회복이 느린 지점을 찾습니다.</p>
+              </div>
+            </div>
+            <div id="recoveryComparison" class="comparison-list"></div>
+          </article>
+        </div>
+      </section>
+    </section>
+
+    <section id="panel-data" class="dashboard-tab-panel" role="tabpanel" aria-labelledby="tab-data" data-tab-panel="data" hidden>
+      <section id="weatherSourcePanel" class="source-strip" aria-labelledby="weatherSourceTitle">
+        <div class="source-strip-head">
+          <div>
+            <h2 id="weatherSourceTitle">기상 원천 상태</h2>
+            <p>가상 운영 판단과 신규 shadow 원천 검증의 가용성을 분리합니다.</p>
+          </div>
+          <span id="enhancedModeTag" class="tag">확인 중</span>
+        </div>
+        <div id="sourceDecisionSummary" class="source-decision-summary" aria-label="운영 판단과 신규 원천 검증 상태"></div>
+        <div id="siteVulnerabilityContractStatus" class="vulnerability-contract-status" role="status" aria-live="polite"></div>
+        <div id="siteVulnerabilitySummary" class="vulnerability-summary-grid" aria-label="현장 취약정보와 원천 진단 지점 필터"></div>
+        <div id="weatherSourceStrip" class="source-status-grid" aria-label="기상 원천별 상태"></div>
+        <details id="weatherSourceDetails" class="source-details">
+          <summary>원천 상세 확인</summary>
+          <div id="weatherSourceDetailBody" class="source-detail-body"></div>
+        </details>
+      </section>
+
+      <section class="dashboard-grid lower-grid">
+        <article class="panel timeline-panel">
+          <div class="panel-head">
+            <div>
+              <h2>오늘 운영 타임라인</h2>
+              <p>정기 알림과 현장 점검 시점을 확인합니다.</p>
+            </div>
+          </div>
+          <div id="weatherTimeline" class="timeline"></div>
+        </article>
+
+        <article class="panel system-panel">
+          <div class="panel-head">
+            <div>
+              <h2>시스템 상태</h2>
+              <p>자동화, 버전과 원천 데이터 연결을 확인합니다.</p>
+            </div>
+          </div>
+          <div id="systemStatus" class="system-grid"></div>
+          <div id="systemTrend" class="trend-list"></div>
+        </article>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="storeDialog" class="store-dialog" aria-labelledby="dialogTitle">
+    <div class="dialog-head">
+      <h2 id="dialogTitle">지점 상세</h2>
+      <button id="dialogClose" type="button" aria-label="닫기">닫기</button>
+    </div>
+    <div id="dialogBody" class="dialog-body"></div>
+  </dialog>
 
   <script src="./data.js"></script>
+<script src="./app.js"></script>
 </body>
 </html>
