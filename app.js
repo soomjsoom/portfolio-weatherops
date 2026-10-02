@@ -4105,9 +4105,8 @@ function clockFromParts(hour, minute, unknownLabel = null) {
 }
 
 function formatPercent(value) {
-  if (value === null || value === undefined || value === '') return '-';
-  const text = String(value).trim();
-  return text.endsWith('%') ? escapeHtml(text) : `${escapeHtml(text)}%`;
+  const number = numericOrNull(typeof value === 'string' ? value.trim().replace(/%$/, '') : value);
+  return number === null ? '-' : `${number.toLocaleString('ko-KR', { maximumFractionDigits: 1 })}%`;
 }
 
 function formatCount(value) {
